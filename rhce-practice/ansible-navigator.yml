@@ -1,0 +1,15 @@
+---
+ansible-navigator:
+  ansible:
+    inventories:
+      - /home/ansi_user/ansible/inventory/hosts.ini
+  execution-environment:
+    enabled: true
+    image: ghcr.io/ansi_user/community-ee-base:latest
+    pull:
+      policy: missing
+  mode: stdout
+  logging:
+    level: warning
+  playbook-artifact:
+    enable: false

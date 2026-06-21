@@ -1,0 +1,70 @@
+---
+# ================================================================
+# site.yml — Initial configuration of all managed nodes
+# Run automatically by controller during `vagrant up`
+# ================================================================
+
+- name: Configure managed nodes
+  hosts: nodes
+  become: true
+
+  vars:
+    lab_packages:
+      - python3
+      - vim
+      - curl
+      - net-tools
+
+    lab_hosts:
+      - { ip: "192.168.56.10", fqdn: "controller.example.com", short: "controller" }
+      - { ip: "192.168.56.11", fqdn: "servera.example.com",    short: "servera" }
+      - { ip: "192.168.56.12", fqdn: "serverb.example.com",    short: "serverb" }
+      - { ip: "192.168.56.13", fqdn: "serverc.example.com",    short: "serverc" }
+      - { ip: "192.168.56.14", fqdn: "serverd.example.com",    short: "serverd" }
+      - { ip: "192.168.56.15", fqdn: "servere.example.com",    short: "servere" }
+      - { ip: "192.168.56.20", fqdn: "reposerver.example.com", short: "reposerver" }
+      - { ip: "192.168.56.30", fqdn: "storage-lab.example.com",short: "storage-lab" }
+
+  tasks:
+    - name: Install base packages
+      ansible.builtin.dnf:
+        name: "{{ lab_packages }}"
+        state: present
+        install_weak_deps: false
+
+    - name: Set FQDN hostname
+      ansible.builtin.hostname:
+        name: "{{ inventory_hostname }}.example.com"
+
+    - name: Populate /etc/hosts with all lab nodes
+      ansible.builtin.blockinfile:
+        path: /etc/hosts
+        marker: "# {mark} RHCE LAB HOSTS"
+        block: |
+          {% for h in lab_hosts %}
+          {{ h.ip }} {{ h.fqdn }} {{ h.short }}
+          {% endfor %}
+
+    - name: Ensure ansible user exists with sudo
+      ansible.builtin.user:
+        name: ansi_user
+        shell: /bin/bash
+        state: present
+
+    - name: Passwordless sudo for ansi_user
+      ansible.builtin.copy:
+        content: "ansi_user ALL=(ALL) NOPASSWD: ALL\n"
+        dest: /etc/sudoers.d/ansi_user
+        mode: '0440'
+
+    - name: Ensure test_user exists (password only — no SSH key)
+      ansible.builtin.user:
+        name: test_user
+        shell: /bin/bash
+        state: present
+
+    - name: Passwordless sudo for test_user
+      ansible.builtin.copy:
+        content: "test_user ALL=(ALL) NOPASSWD: ALL\n"
+        dest: /etc/sudoers.d/test_user
+        mode: '0440'
