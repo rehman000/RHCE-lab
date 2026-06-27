@@ -1,0 +1,33 @@
+---
+# ================================================================
+# unregister_rhel.yml — Unregister VMs before `vagrant destroy`
+# Frees up Red Hat developer subscription slots (max 16 systems)
+#
+# USAGE:
+#   ansible-playbook playbooks/unregister_rhel.yml --ask-vault-pass
+# ================================================================
+
+- name: Unregister RHEL nodes
+  hosts: nodes
+  become: true
+  ignore_errors: true
+
+  tasks:
+    - name: Remove all subscriptions
+      ansible.builtin.command: subscription-manager remove --all
+      changed_when: true
+      ignore_errors: true
+
+    - name: Unregister system
+      ansible.builtin.command: subscription-manager unregister
+      changed_when: true
+      ignore_errors: true
+
+    - name: Clean subscription data
+      ansible.builtin.command: subscription-manager clean
+      changed_when: true
+      ignore_errors: true
+
+    - name: Confirm unregistered
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }} unregistered successfully"

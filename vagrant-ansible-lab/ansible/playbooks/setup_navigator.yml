@@ -1,0 +1,113 @@
+---
+# ── Install ansible-navigator, podman, git on controller ──────────────────────
+# Run this AFTER registering controller to Red Hat
+#
+#   ansible-playbook playbooks/setup_navigator.yml --limit controller
+#
+# ─────────────────────────────────────────────────────────────────────────────
+
+- name: Setup ansible-navigator on controller
+  hosts: controller
+  become: true
+
+  tasks:
+
+    - name: Install git, podman and python3-pip from AppStream
+      ansible.builtin.dnf:
+        name:
+          - git
+          - podman
+          - python3-pip
+        state: present
+
+    - name: Install ansible-navigator via pip
+      ansible.builtin.pip:
+        name: ansible-navigator
+        state: present
+        executable: pip3
+
+    - name: Verify ansible-navigator installed
+      ansible.builtin.command: ansible-navigator --version
+      register: nav_version
+      changed_when: false
+
+    - name: Show version
+      ansible.builtin.debug:
+        msg: "{{ nav_version.stdout }}"
+
+    - name: Create ansible-navigator config for ansible user
+      ansible.builtin.copy:
+        dest:  /home/ansible/ansible/ansible-navigator.yml
+        owner: ansible
+        group: ansible
+        mode:  '0644'
+        content: |
+          ---
+          ansible-navigator:
+            ansible:
+              inventories:
+                - /home/ansi_user/ansible/inventory/hosts.ini
+            execution-environment:
+              enabled: true
+              image: ghcr.io/ansi_user/community-ee-base:latest
+              pull:
+                policy: missing
+            mode: stdout
+            logging:
+              level: warning
+            playbook-artifact:
+              enable: false
+
+    - name: Configure git global settings for ansible user
+      ansible.builtin.command: "{{ item }}"
+      become_user: ansi_user
+      loop:
+        - "git config --global user.name 'ansi_user'"
+        - "git config --global user.email 'ansi_user@rhce-lab.local'"
+        - "git config --global init.defaultBranch main"
+      changed_when: true
+
+    - name: Initialise git repo in ansible project
+      ansible.builtin.command: git init
+      args:
+        chdir: /home/ansi_user/ansible
+        creates: /home/ansi_user/ansible/.git
+      become_user: ansi_user
+
+    - name: Create .gitignore
+      ansible.builtin.copy:
+        dest:  /home/ansi_user/ansible/.gitignore
+        owner: ansi_user
+        group: ansi_user
+        mode:  '0644'
+        content: |
+          vars/rh_credentials.yml
+          *.retry
+          .vault_pass
+          __pycache__/
+
+    - name: Initial git commit
+      ansible.builtin.shell: |
+        cd /home/ansi_user/ansible
+        git add .
+        git diff --cached --quiet || git commit -m "Initial RHCE lab setup"
+      become_user: ansi_user
+      register: git_commit
+      changed_when: "'main' in git_commit.stdout or 'master' in git_commit.stdout"
+      ignore_errors: true
+
+    - name: Pull community EE image (podman)
+      ansible.builtin.command: podman pull ghcr.io/ansi_user/community-ee-base:latest
+      become_user: ansi_user
+      register: pull_result
+      changed_when: "'Copying' in pull_result.stdout"
+      ignore_errors: true
+
+    - name: Done
+      ansible.builtin.debug:
+        msg: |
+          ansible-navigator is ready.
+          Test with: ansible-navigator run playbooks/site.yml
+          Docs:       ansible-navigator doc ansible.builtin.dnf
+          Images:     ansible-navigator images
+          Inventory:  ansible-navigator inventory -i inventory/hosts.ini

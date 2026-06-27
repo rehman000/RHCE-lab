@@ -1,0 +1,60 @@
+---
+# ================================================================
+# register_rhel.yml — Register all VMs with Red Hat subscription
+#
+# SETUP (run once on controller):
+#   cp vars/rh_credentials.yml.template vars/rh_credentials.yml
+#   # Edit rh_credentials.yml with your Red Hat credentials
+#   ansible-vault encrypt vars/rh_credentials.yml
+#
+# USAGE:
+#   ansible-playbook playbooks/register_rhel.yml --ask-vault-pass
+#
+# NOTE: Register controller manually first (ansible_connection=local
+#       can conflict with become + subscription-manager):
+#   subscription-manager register --username EMAIL --password PASS --auto-attach
+# ================================================================
+
+- name: Register RHEL nodes with subscription-manager
+  hosts: nodes
+  become: true
+  vars_files:
+    - ../vars/rh_credentials.yml
+
+  tasks:
+    - name: Check registration status
+      ansible.builtin.command: subscription-manager status
+      register: sm_status
+      ignore_errors: true
+      changed_when: false
+
+    - name: Register with Red Hat
+      ansible.builtin.command: >
+        subscription-manager register
+        --username {{ rh_username }}
+        --password {{ rh_password }}
+        --auto-attach
+        --force
+      when: "'Current' not in sm_status.stdout"
+      no_log: true
+
+    - name: Enable BaseOS repo
+      ansible.builtin.command: >
+        subscription-manager repos
+        --enable=rhel-9-for-x86_64-baseos-rpms
+      changed_when: true
+
+    - name: Enable AppStream repo
+      ansible.builtin.command: >
+        subscription-manager repos
+        --enable=rhel-9-for-x86_64-appstream-rpms
+      changed_when: true
+
+    - name: Verify registration
+      ansible.builtin.command: subscription-manager list --consumed
+      register: consumed
+      changed_when: false
+
+    - name: Show subscription status
+      ansible.builtin.debug:
+        var: consumed.stdout_lines

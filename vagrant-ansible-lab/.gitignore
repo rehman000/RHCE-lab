@@ -1,0 +1,19 @@
+# SSH keys — never commit
+keys/ansible_key
+keys/ansible_key.pub
+
+# Vault — never commit
+ansible/vars/rh_credentials.yml
+
+# Vagrant internals
+.vagrant/
+
+# VirtualBox extra disk
+storage_disk.vdi
+
+# Temp files
+*.retry
+*.log
+
+# Environmental Variables
+*.env

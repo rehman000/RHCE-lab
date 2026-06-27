@@ -1,0 +1,64 @@
+---
+# ================================================================
+# configure_local_repo.yml
+# Configure managed nodes to use local repo server instead of
+# Red Hat subscription. Run from controller after reposerver is up.
+#
+# Usage:
+#   ansible-playbook playbooks/configure_local_repo.yml
+# ================================================================
+
+- name: Configure local repo server on managed nodes
+  hosts: nodes
+  become: true
+
+  vars:
+    repo_server: "192.168.56.20"
+    repo_base_url: "http://{{ repo_server }}/repo"
+
+  tasks:
+    - name: Disable subscription-manager repos (if any)
+      ansible.builtin.command: subscription-manager repos --disable='*'
+      ignore_errors: true
+      changed_when: false
+
+    - name: Configure BaseOS local repo
+      ansible.builtin.copy:
+        dest: /etc/yum.repos.d/lab-baseos.repo
+        mode: '0644'
+        content: |
+          [lab-baseos]
+          name=Lab Local - BaseOS
+          baseurl={{ repo_base_url }}/baseos
+          enabled=1
+          gpgcheck=0
+
+    - name: Configure AppStream local repo
+      ansible.builtin.copy:
+        dest: /etc/yum.repos.d/lab-appstream.repo
+        mode: '0644'
+        content: |
+          [lab-appstream]
+          name=Lab Local - AppStream
+          baseurl={{ repo_base_url }}/appstream
+          enabled=1
+          gpgcheck=0
+
+    - name: Clean DNF cache
+      ansible.builtin.command: dnf clean all
+      changed_when: true
+
+    - name: Verify repo is reachable (install vim as test)
+      ansible.builtin.dnf:
+        name: vim
+        state: present
+      ignore_errors: true
+
+    - name: Show configured repos
+      ansible.builtin.command: dnf repolist
+      register: repolist_output
+      changed_when: false
+
+    - name: Print repo list
+      ansible.builtin.debug:
+        var: repolist_output.stdout_lines
