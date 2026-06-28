@@ -40,6 +40,17 @@ echo 'student:redhat' | chpasswd
 echo "student ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/student
 chmod 440 /etc/sudoers.d/student
 
+mkdir -p /home/student/.ssh
+chmod 700 /home/student/.ssh
+cp /tmp/ansible_key     /home/student/.ssh/id_rsa
+cp /tmp/ansible_key.pub /home/student/.ssh/id_rsa.pub
+chmod 600 /home/student/.ssh/id_rsa
+chmod 644 /home/student/.ssh/id_rsa.pub
+cat /tmp/ansible_key.pub >> /home/student/.ssh/authorized_keys
+chmod 600 /home/student/.ssh/authorized_keys
+chown -R student:student /home/student/.ssh
+
+
 # ── Python3 + Ansible ────────────────────────────────────────
 # ANSIBLE_INSTALL env var (set by lab_setup.sh or Vagrantfile):
 #   auto  — dnf install ansible-core  (default; Rocky works immediately;
@@ -72,7 +83,14 @@ esac
 
 # ── Deploy Ansible project ────────────────────────────────────
 cp -r /tmp/ansible /home/ansi_user/ansible
+cp -r /tmp/ansible /home/student/ansible
 chown -R ansi_user:ansi_user /home/ansi_user/ansible
+chown -R student:student /home/student/ansible
+
+# ── Update ansible.cfg for student user ─────────────────────────
+sed -i 's|inventory           = /home/ansi_user/ansible/inventory/hosts.ini|inventory           = /home/student/ansible/inventory/hosts.ini|' /home/student/ansible/ansible.cfg
+sed -i 's|private_key_file    = /home/ansi_user/.ssh/id_rsa|private_key_file    = /home/student/.ssh/id_rsa|' /home/student/ansible/ansible.cfg
+sed -i 's|ansible_ssh_private_key_file = /home/ansi_user/.ssh/id_rsa|ansible_ssh_private_key_file = /home/student/.ssh/id_rsa|' /home/student/ansible/inventory/hosts.ini
 
 # ── Wait for managed nodes to be reachable ────────────────────
 NODES=("192.168.56.11" "192.168.56.12" "192.168.56.13" "192.168.56.14" "192.168.56.15")

@@ -36,13 +36,6 @@ cp /tmp/ansible_key.pub /home/ansi_user/.ssh/authorized_keys
 chmod 600 /home/ansi_user/.ssh/authorized_keys
 chown -R ansi_user:ansi_user /home/ansi_user/.ssh
 
-# ── student user — PASSWORD ONLY, no SSH key ─────────────────────
-# Purpose: practice `ansible -k` (ask-pass) scenarios
-id student &>/dev/null || useradd -m -s /bin/bash student
-echo 'student:redhat' | chpasswd
-echo "student ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/student
-chmod 440 /etc/sudoers.d/student
-
 # ── Python3 (required by Ansible modules) ─────────────────────
 dnf install -y python3 --quiet
 
